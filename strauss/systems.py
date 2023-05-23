@@ -24,7 +24,8 @@ class System(ABC):
         A function representing the initial state
         of the system.
     system_size: int
-        The number of x values for the system.
+        The number of x values for the system. Note that the first and last
+        value are used for boundary conditions.
     x_step: Number
         The size of the mesh in the x-dimension.
     t_step: Number
@@ -116,23 +117,35 @@ class System(ABC):
             function.
         """
 
-        def constants_to_callables(value: Any):
-            """
-            Turns a value into a callable.
-
-            Parameters
-            ----------
-            value: Any
-                If a Callable, left alone. Else, turns it into the function
-                λ(j) = value.
-            """
-            if not isinstance(value, Callable):
-                return lambda j: value
-            return value
-
         self.boundary_conditions = tuple(
             map(constants_to_callables, boundary_conditions)
         )
+
+    def add_Neumann_BCs(self, boundary_conditions: tuple[Callable, Callable]):
+        """
+        Add Neumann boundary conditions.
+
+        Parameters
+        ----------
+        boundary_conditions: tuple(Callable, Callable)
+            A pair of functions of t which the x-derivative of the system
+            takes at the left and right boundary, respectively.
+            If a constant number is given, it is treated as a constant
+            function.
+        """
+        # we use centred differences, treating x_0 and x_j as our
+        # 'ghost points'
+        left_func = constants_to_callables(boundary_conditions[0])
+        right_func = constants_to_callables(boundary_conditions[1])
+        j = len(self.x_mesh)
+
+        def left_BC(t):
+            return -(left_func(t) * 2 * self.x_step - self.state[2])
+
+        def right_BC(t):
+            return -(right_func(t) * 2 * self.x_step - self.state[j - 2])
+
+        self.boundary_conditions = (left_BC, right_BC)
 
     def print_state(self, time=None):
         """Print current system state at time t (default: current time)."""
@@ -196,3 +209,18 @@ class Diffusion(System):
         return (
             (u[j + 1] - 2 * u[j] + u[j - 1]) / (self.x_step) ** 2
         ) * self.t_step + u[j]
+
+
+def constants_to_callables(value: Any):
+    """
+    Turns a constant value into a callable.
+
+    Parameters
+    ----------
+    value: Any
+        If a Callable, left alone. Else, turns it into the function
+        λ(j) = value.
+    """
+    if not isinstance(value, Callable):
+        return lambda j: value
+    return value
