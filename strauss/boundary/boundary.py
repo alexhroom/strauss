@@ -1,6 +1,6 @@
 """Base definition for the boundary conditions of a system."""
 from __future__ import annotations
-from typing import Tuple, Callable, TYPE_CHECKING
+from typing import Tuple, Callable, TYPE_CHECKING, Any
 from abc import abstractmethod
 from functools import partial
 
@@ -8,6 +8,8 @@ from strauss.parts import Part
 
 if TYPE_CHECKING:
     from strauss.systems import System
+
+# pylint: disable=invalid-name too-few-public-methods
 
 
 class Boundary(Part):
@@ -71,6 +73,9 @@ class Dirichlet(Boundary):
 
     def set_boundary_conditions(self, left_func, right_func):
         def dirichlet_BC(func: Callable):
+            """
+            Helper function to give the functions the right parameters.
+            """
             return lambda sys, t: func(t)
 
         return (dirichlet_BC(left_func), dirichlet_BC(right_func))

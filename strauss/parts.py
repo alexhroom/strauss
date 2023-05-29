@@ -1,15 +1,15 @@
 """Classes for system parts."""
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Union, List
-
-import numpy as np
+from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from systems import System
-    from strausstypes import Number
+
+    Number = Union[int, float]
 
 
+# pylint: disable=too-few-public-methods
 class Part(ABC):
     """
     Defines part of a system.

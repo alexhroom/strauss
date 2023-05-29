@@ -11,7 +11,8 @@ from strauss.parts import Part
 
 if TYPE_CHECKING:
     from systems import System
-    from strausstypes import Number
+
+    Number = Union[int, float]
 
 
 class Scheme(Part):
@@ -116,7 +117,7 @@ class Diffusion(Scheme):
         return [initial_state]
 
     def scheme(self, sys: System, j: int) -> Number:
-        u = sys.state
+        u = sys.state  # pylint: disable=invalid-name
         return ((u[j + 1] - 2 * u[j] + u[j - 1]) / (sys.x_step) ** 2) * sys.t_step + u[
             j
         ]

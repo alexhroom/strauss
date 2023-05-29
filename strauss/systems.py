@@ -3,8 +3,8 @@ Python code for the methods explained in Chapter 8,
 'Computation of Solutions', in Partial Differential
 Equations, An Introduction by Walter A. Strauss.
 """
-from abc import ABC, abstractmethod
-from typing import Callable, Union, Any
+from abc import ABC
+from typing import Union
 from copy import deepcopy
 
 import numpy as np
@@ -39,9 +39,9 @@ class System(ABC):
             0, x_step * (system_size - 1), num=system_size
         )
 
-        self.boundary_conditions = None
         self.state_history = None
-        self.scheme = None
+        self.boundary_conditions = None
+        self.scheme = lambda x: x  # default scheme is identity function
 
     def run(self, n_steps: int, print_state=False):
         """
@@ -63,11 +63,13 @@ class System(ABC):
         """
         Run one step of the computation.
         """
-        new_state = np.hstack((
-            np.array([self.boundary_conditions[0](self.time)]),
-            np.array([self.scheme(j) for j in range(1, len(self.state) - 1)]),
-            np.array([self.boundary_conditions[1](self.time)]),
-        ))
+        new_state = np.hstack(
+            (
+                np.array([self.boundary_conditions[0](self.time)]),
+                np.array([self.scheme(j) for j in range(1, len(self.state) - 1)]),
+                np.array([self.boundary_conditions[1](self.time)]),
+            )
+        )
         self.state_history.append(new_state)
 
     @property
@@ -78,7 +80,7 @@ class System(ABC):
     @property
     def time(self):
         """Returns the number of time steps that have elapsed."""
-        return len(self.state_history)-1
+        return len(self.state_history) - 1
 
     def print_state(self, time=None):
         """Print current system state at time t (default: current time)."""
@@ -121,5 +123,5 @@ class System(ABC):
         """
         Add a part to the system.
         """
-        self = deepcopy(self)
-        return other.__cladd__(self)
+        new_self = deepcopy(self)
+        return other.__cladd__(new_self)
