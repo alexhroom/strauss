@@ -35,8 +35,11 @@ class Scheme(Part):
         of a specific point j in the system after 1 time step.
     """
 
-    def __init__(self, initial_conditions: Union[Callable, Tuple[Callable]]):
+    def __init__(
+        self, initial_conditions: Union[Callable, Tuple[Callable]], **variables
+    ):
         self.initial_conditions = initial_conditions
+        self.variables = variables
 
     @abstractmethod
     def initialise(
@@ -109,15 +112,53 @@ class Diffusion(Scheme):
     def initialise(self, sys: System, initial_conditions):
         if not callable(initial_conditions):
             raise ValueError(
-                "Diffusion expects one function as its initial conditions."
+                "Diffusion requires one function as its initial condition."
             )
 
         phi_ufunc = np.frompyfunc(initial_conditions, 1, 1)
-        initial_state: np.array = phi_ufunc(sys.x_mesh)
-        return [initial_state]
+        return [phi_ufunc(sys.x_mesh)]
 
     def scheme(self, sys: System, j: int) -> Number:
         u = sys.state  # pylint: disable=invalid-name
         return ((u[j + 1] - 2 * u[j] + u[j - 1]) / (sys.x_step) ** 2) * sys.t_step + u[
             j
         ]
+
+
+class Wave(Scheme):
+    r"""
+    System representing the wave equation
+    $$u_{tt} = c^2 u_{xx}$$, under the scheme
+
+    $$u^{n+1}_j = s(u^n_{j+1} + u^n_{j-1}) + 2(1 - s)u^n_j - u^{n-1}_j$$
+
+    Using a forward difference for $u_t$ and centred second difference for $u_{xx}$,
+    and where $s = (c(\Delta t)/(\Delta x))^2$.
+    """
+
+    def initialise(self, sys: System, initial_conditions):
+        if callable(initial_conditions) or len(initial_conditions) != 2:
+            raise ValueError("Waves require two functions as its initial conditions.")
+        wave_speed = self.variables.get("wave_speed", 0)
+        self.s = ((wave_speed * sys.t_step) / sys.x_step) ** 2
+
+        phi, psi = initial_conditions
+        phi_ufunc = np.frompyfunc(phi, 1, 1)
+
+        def psi_scheme(j):
+            return (
+                (self.s / 2) * (phi(j - sys.x_step) + phi(j + sys.x_step))
+                + (1 - self.s) * phi(j)
+                + psi(j) * sys.t_step
+            )
+
+        psi_ufunc = np.frompyfunc(psi_scheme, 1, 1)
+        return [phi_ufunc(sys.x_mesh), psi_ufunc(sys.x_mesh)]
+
+    def scheme(self, sys: System, j: int):
+        # pylint: disable=invalid-name
+        u = sys.state
+        u_n_minus_1 = sys.state_history[-2]
+        s = self.s
+
+        return s*(u[j+1] + u[j-1]) + 2*(1-s)*u[j] - u_n_minus_1[j]
